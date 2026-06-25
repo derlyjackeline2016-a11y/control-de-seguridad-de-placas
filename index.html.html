@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Control de Acceso Profesional</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f4f9; padding: 20px; margin: 0; }
+        h1 { color: #333; margin-bottom: 20px; font-size: 24px; }
+        
+        .btn-mic {
+            background-color: #007bff; color: white; border: none; border-radius: 50%;
+            width: 110px; height: 110px; font-size: 14px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); margin-bottom: 15px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .listening { animation: pulse 1.5s infinite; background-color: #dc3545; }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(220, 53, 69, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+        }
+        
+        .manual-box { margin: 15px auto; max-width: 320px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .manual-box input { width: 90%; padding: 10px; font-size: 15px; border: 1px solid #ccc; border-radius: 4px; text-align: center; margin-bottom: 10px; }
+        .manual-box input#manual-input { text-transform: uppercase; font-weight: bold; font-size: 16px; }
+        .manual-box button { width: 96%; padding: 10px; font-size: 16px; background-color: #555; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+
+        #result-box { margin-top: 20px; padding: 15px; border-radius: 12px; font-size: 22px; font-weight: bold; display: none; }
+        .match { background-color: #d4edda; color: #155724; border: 2px solid #c3e6cb; }
+        .no-match { background-color: #f8d7da; color: #721c24; border: 2px solid #f5c6cb; }
+        
+        #text-heard { font-size: 14px; color: #666; margin-top: 10px; font-style: italic; }
+        #processed-plate { font-size: 16px; color: #0056b3; margin-top: 5px; font-weight: bold; background: #e2eefd; padding: 5px; display: inline-block; border-radius: 4px; }
+        
+        .actions-row { display: flex; justify-content: center; gap: 10px; max-width: 340px; margin: 15px auto 0 auto; }
+        .btn-add { display: none; background-color: #28a745; color: white; border: none; padding: 12px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; flex: 1; }
+        .btn-photo-trigger { display: none; background-color: #6f42c1; color: white; border: none; padding: 12px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; flex: 1; align-items: center; justify-content: center; gap: 5px; }
+
+        #camera-zone { display: none; margin: 15px auto; max-width: 320px; background: #000; padding: 10px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+        #video-preview { width: 100%; border-radius: 6px; background: #222; }
+        .btn-capture { background-color: #e83e8c; color: white; border: none; width: 100%; padding: 10px; margin-top: 8px; font-size: 15px; font-weight: bold; border-radius: 5px; cursor: pointer; }
+
+        .history-box { margin: 30px auto 0 auto; max-width: 340px; background: white; padding: 15px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); text-align: left; }
+        .history-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 8px; margin-bottom: 10px; }
+        .history-header h3 { margin: 0; font-size: 16px; color: #444; }
+        .btn-clear-history { background: #dc3545; color: white; border: none; padding: 5px 10px; font-size: 11px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        
+        .history-list { max-height: 280px; overflow-y: auto; padding: 0; margin: 0; list-style: none; }
+        .history-item { display: flex; flex-direction: column; padding: 10px; margin-bottom: 8px; border-radius: 6px; font-size: 14px; font-weight: bold; }
+        .history-row-top { display: flex; justify-content: space-between; width: 100%; }
+        .history-destination { font-size: 12px; font-weight: normal; color: #444; margin-top: 4px; font-style: italic; }
+        .history-thumb { width: 100%; max-height: 120px; object-fit: cover; border-radius: 4px; margin-top: 6px; border: 1px solid rgba(0,0,0,0.1); display: none; }
+        
+        .item-match { background-color: #e2f0d9; color: #2e6930; border-left: 4px solid #28a745; }
+        .item-no-match { background-color: #fce4d6; color: #c65911; border-left: 4px solid #dc3545; }
+        .history-time { font-weight: normal; color: #666; font-size: 12px; }
+
+        .backup-zone { margin-top: 40px; padding-top: 20px; border-top: 1px dashed #ccc; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .btn-backup { background-color: #6c757d; color: white; border: none; padding: 8px 15px; font-size: 13px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; max-width: 320px; }
+        .btn-download-history { background-color: #17a2b8; color: white; }
+    </style>
+</head>
+<body>
+
+    <h1>Control de Acceso (Base Unificada PDF)</h1>
+    
+    <button id="start-btn" class="btn-mic">PRESIONAR Y<br>DICTAR</button>
+    <div id="text-heard"></div>
+    <div id="processed-plate"></div>
+
+    <div class="manual-box">
+        <input type="text" id="manual-input" placeholder="Escribe la placa aquí" maxlength="10">
+        <input type="text" id="description-input" placeholder="Destino / Oficina / Detalle" maxlength="40">
+        <button id="manual-btn">Buscar / Registrar</button>
+    </div>
+    
+    <div id="result-box"></div>
+    
+    <div class="actions-row">
+        <button id="add-plate-btn" class="btn-add">¿Agregar Placa?</button>
+        <button id="photo-trigger-btn" class="btn-photo-trigger">📷 Tomar Foto</button>
+    </div>
+
+    <div id="camera-zone">
+        <video id="video-preview" autoplay playsinline></video>
+        <button id="capture-btn" class="btn-capture">Capturar Evidencia</button>
+        <canvas id="hidden-canvas" style="display:none;"></canvas>
+    </div>
+
+    <div class="history-box">
+        <div class="history-header">
+            <h3>Historial del Turno</h3>
+            <button id="clear-history-btn" class="btn-clear-history">Borrar Pantalla</button>
+        </div>
+        <ul id="history-list" class="history-list"></ul>
+    </div>
+
+    <div class="backup-zone">
+        <button id="download-history-btn" class="btn-backup btn-download-history">Descargar Reporte del Turno (.txt)</button>
+    </div>
+
+    <script>
+        // Tu URL de Google Apps Script vinculada correctamente
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyfbS9BnJfpmSPzl6s4DJxBgEHiyl3g7YeucQ8gonfvo5SrmIQFXzLXw9ySy-vxSOAI/exec"; 
+
+        // Base de Datos Unificada y limpia de los dos documentos PDF proporcionados
+        const placasOriginales = [
+            "NIS251", "BLS766", "HIX775", "HCT315", "GLL710", "RGN888", "KWS486", "IOZ585", 
+            "URU669", "FYN110", "GLO124", "MAY198", "CVD836", "LXZ817", "NZP182", "EFL609", 
+            "INL069", "ZZT334", "BOV146", "RBW07G", "UUQ250", "TOF82D", "EIW874", "EMU74G", 
+            "EF175F", "MCR960", "UTP964", "LNV287", "EQI30G", "DDM513", "NLD83G", "GEZ64F", 
+            "FKB12G", "ENJ479", "JSW619", "NET402", "NDK604", "LOW827", "ZYS842", "IXZ472", 
+            "OAX85G", "RKL816", "EJL200", "NJV614", "DWQ946", "ABH77H", "UUQ84C", "YZK90E", 
+            "NJW446", "KYU701", "JN0098", "QES461", "LDY20F", "N10756", "DBZ907", "JUM969", 
+            "HBL820", "KYS932", "DDD075", "NDX638", "FNQ119", "NJM046", "KJH668", "JVR195", 
+            "F0Z450", "KQZ531", "ZBU75E", "RBY657", "IXP242", "KKWO6G", "IHW640", "0EY73E", 
+            "NUS297", "BBM711", "CVD838", "DAI825", "BHS566", "BXX349", "CYB452", "DOL036", 
+            "DOM440", "EMM681", "BYT209", "HCK366", "IJW229", "FZT419", "IMS828", "GLW860", 
+            "HIS346", "GUU476", "HKN066", "IOZ703", "JBL483", "JCS950", "KFT727", "KIN073", 
+            "LMY030", "LNK857", "MPR103", "JDS649", "KWO351", "LOM011", "JGV282", "KWR192", 
+            "JLZ983", "LPK156", "JMR832", "KWV086", "JRL726", "JWR956", "KXL601", "LZT553", 
+            "JWY709", "NAP437", "PBU292", "QIL324", "RAB968", "NBV019", "PCM127", "O0Z929", 
+            "RAV968", "NDQ957", "PDZ104", "RDQ841", "NDW173", "PGS914", "PSX801", "RGW149", 
+            "NIV464", "PUL504", "RHS566", "NJR235", "PXU396", "ROL676", "NLS858", "NSU691", 
+            "PXX790", "PYD399", "RZF953", "NSU987", "PYN456", "PYO117", "PYP195", "PYQ399", 
+            "UET533", "UGV132", "USS975", "UTL802", "UUK348"
+        ];
+
+        let placasNuevasCompartidas = [];
+        let descripcionesNuevasCompartidas = {}; 
+        let historialDiarioLocal = []; 
+        let fotosSesionLocal = {}; 
+        let streamCamara = null;
+        let ultimaPlacaBuscada = "";
+        let ultimoRegistroId = null;
+        
+        const startBtn = document.getElementById('start-btn');
+        const resultBox = document.getElementById('result-box');
+        const textHeard = document.getElementById('text-heard');
+        const processedPlate = document.getElementById('processed-plate');
+        const addPlateBtn = document.getElementById('add-plate-btn');
+        const photoTriggerBtn = document.getElementById('photo-trigger-btn');
+        const manualInput = document.getElementById('manual-input');
+        const descriptionInput = document.getElementById('description-input');
+        const manualBtn = document.getElementById('manual-btn');
+        const historyListEl = document.getElementById('history-list');
+        const clearHistoryBtn = document.getElementById('clear-history-btn');
+        const downloadHistoryBtn = document.getElementById('download-history-btn');
+        const cameraZone = document.getElementById('camera-zone');
+        const videoPreview = document.getElementById('video-preview');
+        const captureBtn = document.getElementById('capture-btn');
+        const hiddenCanvas = document.getElementById('hidden-canvas');
+
+        sincronizarConGoogleSheets();
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+        let recognition = null;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'es-CO';
+
+            startBtn.addEventListener('click', () => {
+                resultBox.style.display = 'none'; addPlateBtn.style.display = 'none'; photoTriggerBtn.style.display = 'none'; cerrarCamara();
+                textHeard.innerText = "Escuchando..."; startBtn.classList.add('listening'); startBtn.innerHTML = "ESCUCHANDO...";
+                try { recognition.start(); } catch(e) { recognition.stop(); }
+            });
+
+            recognition.onresult = (event) => {
+                let transcripcion = event.results[0][0].transcript.toLowerCase();
+                textHeard.innerText = `Escuché: "${transcripcion.toUpperCase()}"`;
+                ultimaPlacaBuscada = corregirFonetica(transcripcion);
+                processedPlate.innerText = `Interpretado: ${ultimaPlacaBuscada}`;
+                
+                verificarPlaca(ultimaPlacaBuscada, "");
+                restaurarBotonMic();
+            };
+            recognition.onerror = restaurarBotonMic; recognition.onend = restaurarBotonMic;
+        }
+
+        function restaurarBotonMic() { startBtn.classList.remove('listening'); startBtn.innerHTML = "PRESIONAR Y<br>DICTAR"; }
+
+        function corregirFonetica(texto) {
+            let t = texto.trim();
+            t = t.replace(/([a-z0-9ñÑ])\s+(?:otra|otro)\s+\1/g, "$1 $1");
+            t = t.replace(/([a-z0-9ñÑ])\s+y\s+otra\s+\1/g, "$1 $1");
+
+            if (t.startsWith("i latina")) t = "i " + t.substring(8);
+            else if (t.startsWith("y griega") || t.startsWith("igreca")) t = "y " + (t.startsWith("y griega") ? t.substring(8) : t.substring(6));
+            
+            const mapaLetras = { "i latina": "i", "y griega": "y", "igreca": "y", "i": "i", "y": "y", "uve": "v", "ve": "v", "be": "b", "b": "b", "v": "v", "w": "w", "cero": "0", "uno": "1", "dos": "2", "tres": "3", "cuatro": "4", "cinco": "5", "seis": "6", "siete": "7", "ocho": "8", "nueve": "9" };
+            let palabras = t.split(/\s+/), resultado = "";
+            
+            palabras.forEach(p => { 
+                if (mapaLetras[p]) resultado += mapaLetras[p]; 
+                else resultado += p.replace(/[^a-z0-9ñÑ]/g, ''); 
+            });
+
+            let resLimpio = resultado.toUpperCase();
+
+            if (resLimpio.length === 5) {
+                let letras = resLimpio.substring(0, 2);
+                let numeros = resLimpio.substring(2);
+                if (/^[A-Z]{2}$/.test(letras) && /^[0-9]{3}$/.test(numeros)) {
+                    if (placasOriginales.some(p => p.startsWith(letras[0] + letras))) {
+                        resLimpio = letras[0] + resLimpio;
+                    }
+                }
+            }
+            return resLimpio;
+        }
+
+        manualBtn.addEventListener('click', () => {
+            let texto = manualInput.value; if(texto.trim() === "") return;
+            resultBox.style.display = 'none'; addPlateBtn.style.display = 'none'; photoTriggerBtn.style.display = 'none'; cerrarCamara();
+            ultimaPlacaBuscada = texto.replace(/[^a-zA-Z0-9ñÑ]/g, '').toUpperCase();
+            
+            let descActual = descriptionInput.value.trim();
+            verificarPlaca(ultimaPlacaBuscada, descActual);
+            manualInput.value = "";
+        });
+
+        addPlateBtn.addEventListener('click', () => {
+            if (ultimaPlacaBuscada && ultimaPlacaBuscada.length >= 3) {
+                let dest = descriptionInput.value.trim() || "Autorizado Nuevo";
+                
+                if (!placasNuevasCompartidas.includes(ultimaPlacaBuscada)) {
+                    placasNuevasCompartidas.push(ultimaPlacaBuscada);
+                }
+                descripcionesNuevasCompartidas[ultimaPlacaBuscada] = dest;
+
+                guardarEnGoogleSheets(ultimaPlacaBuscada, dest);
+
+                addPlateBtn.style.display = 'none';
+                resultBox.className = "match";
+                resultBox.innerHTML = `¡ENVIADO A CLOUD!<br><span style="font-size:32px">${ultimaPlacaBuscada}</span><br><span style="font-size:14px; font-weight:normal;">Destino asignado: ${dest}</span>`;
+                hablar("Placa agregada correctamente");
+                
+                historialDiarioLocal = historialDiarioLocal.map(item => {
+                    if (item.id === ultimoRegistroId) { item.existe = true; item.destino = dest; }
+                    return item;
+                });
+                actualizarPantallaHistorial();
+                
+                setTimeout(() => { descriptionInput.value = ""; }, 1500);
+            }
+        });
+
+        function verificarPlaca(placa, destinoInyectado) {
+            resultBox.style.display = 'block'; photoTriggerBtn.style.display = 'flex';
+            let baseTotal = [...placasOriginales, ...placasNuevasCompartidas];
+            let existe = baseTotal.includes(placa), placaFinal = placa;
+
+            if (!existe) {
+                let varP = placa.includes('I') ? placa.replace(/I/g, 'Y') : (placa.includes('Y') ? placa.replace(/Y/g, 'I') : placa);
+                if (baseTotal.includes(varP)) { existe = true; placaFinal = varP; }
+            }
+
+            let destinoFinal = destinoInyectado;
+            
+            if (existe) {
+                if (descriptionInput.value.trim() !== "") {
+                    destinoFinal = descriptionInput.value.trim();
+                    if (placasNuevasCompartidas.includes(placaFinal)) {
+                        descripcionesNuevasCompartidas[placaFinal] = destinoFinal;
+                        guardarEnGoogleSheets(placaFinal, destinoFinal);
+                    }
+                } else if (descripcionesNuevasCompartidas[placaFinal]) {
+                    destinoFinal = descripcionesNuevasCompartidas[placaFinal];
+                }
+                resultBox.className = "match";
+                resultBox.innerHTML = `¡EXISTE!<br><span style="font-size:32px">${placaFinal}</span><br><span style="font-size:14px; font-weight:normal;">Destino: ${destinoFinal || 'Rutina'}</span>`;
+                addPlateBtn.style.display = 'none'; hablar("Existe");
+            } else {
+                destinoFinal = descriptionInput.value.trim() || "Sin registrar";
+                resultBox.className = "no-match";
+                resultBox.innerHTML = `NO EXISTE<br><span style="font-size:32px">${placaFinal}</span>`;
+                if (placaFinal.length >= 3) { addPlateBtn.innerText = `¿Agregar ${placaFinal}?`; addPlateBtn.style.display = 'block'; }
+                hablar("No existe");
+            }
+            
+            ultimoRegistroId = Date.now();
+            const ahora = new Date();
+            const horaStr = ahora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            
+            historialDiarioLocal.unshift({ id: ultimoRegistroId, placa: placaFinal, existe: existe, hora: horaStr, destino: destinoFinal === "Sin registrar" ? "" : destinoFinal });
+            if (historialDiarioLocal.length > 30) historialDiarioLocal.pop();
+            actualizarPantallaHistorial();
+        }
+
+        photoTriggerBtn.addEventListener('click', async () => {
+            cameraZone.style.display = 'block';
+            try {
+                streamCamara = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+                videoPreview.srcObject = streamCamara;
+            } catch (err) {
+                try {
+                    streamCamara = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                    videoPreview.srcObject = streamCamara;
+                } catch(e) { alert("Cámara no disponible."); cameraZone.style.display = 'none'; }
+            }
+        });
+
+        captureBtn.addEventListener('click', () => {
+            if (!streamCamara) return;
+            hiddenCanvas.width = videoPreview.videoWidth || 640; 
+            hiddenCanvas.height = videoPreview.videoHeight || 480;
+            const ctx = hiddenCanvas.getContext('2d');
+            ctx.drawImage(videoPreview, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
+            
+            const ahora = new Date();
+            const fechaStr = ahora.toLocaleDateString();
+            const horaStr = ahora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            
+            let registroActual = historialDiarioLocal.find(item => item.id === ultimoRegistroId);
+            let destinoStr = (registroActual && registroActual.destino) ? registroActual.destino : "Rutina";
+            let textoEtiqueta = `${fechaStr} ${horaStr} | Placa: ${ultimaPlacaBuscada} | Destino: ${destinoStr}`;
+            
+            ctx.fillStyle = "rgba(0, 0, 0, 0.6)"; ctx.fillRect(0, hiddenCanvas.height - 40, hiddenCanvas.width, 40);
+            ctx.fillStyle = "#ffffff"; ctx.font = "bold 15px Arial"; ctx.textAlign = "left";
+            ctx.fillText(textoEtiqueta, 15, hiddenCanvas.height - 15);
+            
+            const fotoConDatosBase64 = hiddenCanvas.toDataURL('image/jpeg', 0.25);
+            fotosSesionLocal[ultimoRegistroId] = fotoConDatosBase64; 
+            
+            actualizarPantallaHistorial(); 
+            cerrarCamara();
+        });
+
+        function cerrarCamara() { cameraZone.style.display = 'none'; if (streamCamara) { streamCamara.getTracks().forEach(track => track.stop()); streamCamara = null; } }
+        
+        function hablar(m) { if ('speechSynthesis' in window) { window.speechSynthesis.cancel(); const h = new SpeechSynthesisUtterance(m); h.lang = 'es-MX'; window.speechSynthesis.speak(h); } }
+        
+        function actualizarPantallaHistorial() {
+            historyListEl.innerHTML = "";
+            if (historialDiarioLocal.length === 0) {
+                historyListEl.innerHTML = `<li style="text-align:center;color:#888;font-size:13px;padding:10px;">Sin registros en esta sesión.</li>`; return;
+            }
+            historialDiarioLocal.forEach(item => {
+                const li = document.createElement('li'); li.className = `history-item ${item.existe ? 'item-match' : 'item-no-match'}`;
+                let fotoLocal = fotosSesionLocal[item.id];
+                let imgHtml = fotoLocal ? `<img src="${fotoLocal}" class="history-thumb" style="display:block;" />` : "";
+                
+                li.innerHTML = `<div class="history-row-top"><span>${item.placa}</span><span class="history-time">${item.hora}</span></div><div class="history-destination">Destino: ${item.destino || 'Rutina'}</div>${imgHtml}`;
+                historyListEl.appendChild(li);
+            });
+        }
+
+        clearHistoryBtn.addEventListener('click', () => { historialDiarioLocal = []; fotosSesionLocal = {}; actualizarPantallaHistorial(); });
+
+        downloadHistoryBtn.addEventListener('click', () => {
+            if (historialDiarioLocal.length === 0) return alert("Historial vacío.");
+            let contenidoReporte = `REPORTE DE ACCESO DIARIO\n---------------------------------------------\n\n`;
+            [...historialDiarioLocal].reverse().forEach((item, index) => {
+                contenidoReporte += `[${index + 1}] Hora: ${item.hora} | Placa: ${item.placa} | Destino: ${item.destino || 'Rutina'} | Estado: ${item.existe ? 'AUTORIZADO' : 'NO AUTORIZADO'}\n`;
+            });
+            let dataStr = "data:text/plain;charset=utf-8," + encodeURIComponent(contenidoReporte);
+            let downloadAnchor = document.createElement('a'); downloadAnchor.setAttribute("href", dataStr); downloadAnchor.setAttribute("download", `Reporte_Turno.txt`);
+            document.body.appendChild(downloadAnchor); downloadAnchor.click(); downloadAnchor.remove();
+        });
+
+        function guardarEnGoogleSheets(placa, destino) {
+            if(SCRIPT_URL.includes("TU_URL_DE_GOOGLE")) return;
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ placa: placa, destino: destino })
+            })
+            .catch(e => console.log("Reconectando backend..."));
+        }
+
+        function sincronizarConGoogleSheets() {
+            if(SCRIPT_URL.includes("TU_URL_DE_GOOGLE")) return;
+            fetch(SCRIPT_URL)
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.placas) {
+                    placasNuevasCompartidas = data.placas;
+                    descripcionesNuevasCompartidas = data.descripciones || {};
+                }
+            })
+            .catch(e => console.log("Sincronizando nubes externas..."));
+        }
+
+        setInterval(sincronizarConGoogleSheets, 20000);
+    </script>
+</body>
+</html>
